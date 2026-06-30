@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Sync Activities",
+  "version": "3.0.0",
+  "description": "Automação para o portal de Educação Profissional Paulista — completa atividades, lista cursos e mostra um dashboard.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://educacaoprofissional.educacao.sp.gov.br/*",
+    "https://api.groq.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Abrir Sync Activities",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/injected.js"],
+      "matches": ["https://educacaoprofissional.educacao.sp.gov.br/*"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://educacaoprofissional.educacao.sp.gov.br/*"],
+      "js": [
+        "src/store.js",
+        "src/api.js",
+        "src/courses.js",
+        "src/activities.js",
+        "src/groq.js",
+        "src/reader.js",
+        "src/completers.js",
+        "src/engine.js",
+        "src/ui.js",
+        "src/main.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
