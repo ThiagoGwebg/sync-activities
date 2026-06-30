@@ -3,10 +3,14 @@
   "name": "Sync Activities",
   "version": "3.0.0",
   "description": "Automação para o portal de Educação Profissional Paulista — completa atividades, lista cursos e mostra um dashboard.",
-  "permissions": ["storage"],
+  "permissions": ["storage", "cookies"],
+  "externally_connectable": {
+    "matches": ["http://localhost:3000/*", "http://127.0.0.1:3000/*"]
+  },
   "host_permissions": [
     "https://educacaoprofissional.educacao.sp.gov.br/*",
-    "https://api.groq.com/*"
+    "https://api.groq.com/*",
+    "http://localhost:3000/*"
   ],
   "background": {
     "service_worker": "background.js"

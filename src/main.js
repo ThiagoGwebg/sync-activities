@@ -7,8 +7,11 @@
   // Lê sesskey/userId do contexto da página, depois monta o painel.
   EA.api.initFromPage().finally(() => EA.ui.mount());
 
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg && msg.type === 'EA_TOGGLE') EA.ui.toggle();
+    if (msg && msg.type === 'EA_GET_CFG') {
+      sendResponse({ sesskey: EA.api.sesskey, userId: EA.api.userId });
+    }
   });
 
   console.log('%cSync Activities v3.0 carregado', 'color:#a855f7;font-weight:600;font-size:12px');
