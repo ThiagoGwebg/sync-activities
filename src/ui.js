@@ -1140,7 +1140,159 @@
     setProgress(pp) { pp = Math.min(100, Math.max(0, pp)); if (this.el.pbar) this.el.pbar.style.width = pp + '%'; if (this.el.pct) this.el.pct.textContent = Math.round(pp) + '%'; },
     toggle() { if (!this.mounted) { this.mount(); return; } this.host.style.display = this.host.style.display === 'none' ? '' : 'none'; },
     unmount() { if (this.host) this.host.remove(); this.mounted = false; this.host = null; },
+
+    // ── Tela de Login ──
+    mountLogin() {
+      if (this.loginMounted) return;
+      this.loginMounted = true;
+
+      this.loginHost = document.createElement('div');
+      this.loginHost.id = '__syncactivities_login';
+      document.documentElement.appendChild(this.loginHost);
+      const root = this.loginHost.attachShadow({ mode: 'open' });
+
+      const style = document.createElement('style');
+      style.textContent = LOGIN_STYLES;
+      root.appendChild(style);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'lw';
+      wrap.innerHTML = LOGIN_SHELL;
+      root.appendChild(wrap);
+
+      this._bindLogin(root, wrap);
+    },
+
+    _bindLogin(root, wrap) {
+      const api = EA.api;
+      const q = (s) => root.querySelector(s);
+
+      // Máscara para RA: só números, auto-foca no dígito depois de 12 chars
+      const raEl = q('[data-ra]');
+      const digEl = q('[data-dig]');
+      const passEl = q('[data-pass]');
+      const eyeEl = q('[data-eye]');
+      const btnEl = q('[data-login-btn]');
+      const errEl = q('[data-err]');
+
+      raEl.oninput = () => {
+        raEl.value = raEl.value.replace(/\D/g, '');
+        q('[data-preview]').textContent = raEl.value + (digEl.value || '_') + 'sp';
+        if (raEl.value.length >= 12) digEl.focus();
+      };
+      digEl.oninput = () => {
+        digEl.value = digEl.value.replace(/\D/g, '').slice(0, 1);
+        q('[data-preview]').textContent = (raEl.value || '') + (digEl.value || '_') + 'sp';
+        if (digEl.value.length === 1) passEl.focus();
+      };
+      eyeEl.onclick = () => {
+        const isPass = passEl.type === 'password';
+        passEl.type = isPass ? 'text' : 'password';
+        eyeEl.textContent = isPass ? '🙈' : '👁';
+      };
+
+      btnEl.onclick = async () => {
+        const ra = raEl.value.trim();
+        const dig = digEl.value.trim();
+        const pass = passEl.value;
+        if (!ra || !dig || !pass) { errEl.textContent = 'Preencha todos os campos.'; errEl.style.display = 'block'; return; }
+        errEl.style.display = 'none';
+        btnEl.disabled = true;
+        btnEl.textContent = 'Entrando…';
+        try {
+          await api.login(ra, dig, 'sp', pass);
+          // Remove tela de login e monta app principal
+          this.loginHost.remove();
+          this.loginMounted = false;
+          this.mount();
+        } catch (e) {
+          errEl.textContent = e.message || 'Falha no login.';
+          errEl.style.display = 'block';
+          btnEl.disabled = false;
+          btnEl.textContent = 'Entrar';
+        }
+      };
+
+      // Enter submete
+      [raEl, digEl, passEl].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') btnEl.click(); }));
+    },
   };
+
+  // ── Login Styles ──
+  const LOGIN_STYLES = `
+  :host { all: initial; }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+  .lw {
+    position: fixed; inset: 0; z-index: 2147483647; background: rgba(0,0,0,0.72);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadein .3s ease;
+  }
+  @keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
+  .card {
+    width: 400px; background: #0E1527; border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px; padding: 40px 36px 36px;
+    box-shadow: 0 40px 100px -20px rgba(0,0,0,0.9), 0 0 60px -20px rgba(59,130,246,0.2);
+    animation: popin .35s cubic-bezier(.16,1,.3,1);
+  }
+  @keyframes popin { from { opacity:0; transform: scale(.94) translateY(20px) } to { opacity:1; transform:none } }
+  .logo-area { text-align: center; margin-bottom: 32px; }
+  .logo-icon { width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #2563EB, #7C3AED); display: inline-flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 900; color: #fff; box-shadow: 0 8px 24px rgba(59,130,246,0.4); margin-bottom: 14px; }
+  .logo-title { font-size: 22px; font-weight: 800; letter-spacing: -.03em; color: #ECF0F7; }
+  .logo-title b { background: linear-gradient(135deg, #3B82F6, #8B5CF6); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .logo-sub { font-size: 12px; color: #64748B; margin-top: 4px; }
+  .preview { text-align: center; font-family: monospace; font-size: 13px; font-weight: 700; color: #3B82F6; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 10px; padding: 8px 14px; margin-bottom: 24px; letter-spacing: .05em; }
+  .row { display: flex; gap: 10px; }
+  .field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; flex: 1; }
+  .field.dig { flex: 0 0 70px; }
+  label { font-size: 11px; font-weight: 700; color: #94A3B8; text-transform: uppercase; letter-spacing: .08em; }
+  input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; color: #ECF0F7; font-size: 14px; padding: 12px 14px; outline: none; transition: .15s; }
+  input:focus { border-color: #3B82F6; box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+  input::placeholder { color: #334155; }
+  .pass-wrap { position: relative; }
+  .pass-wrap input { padding-right: 42px; }
+  .eye { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px; color: #475569; transition: .15s; }
+  .eye:hover { color: #94A3B8; }
+  .hint { font-size: 10.5px; color: #475569; margin-top: -10px; margin-bottom: 14px; }
+  .err { display: none; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; padding: 10px 14px; color: #EF4444; font-size: 12px; margin-bottom: 14px; }
+  .btn { width: 100%; padding: 14px; border-radius: 14px; border: none; background: linear-gradient(135deg, #2563EB, #7C3AED); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; transition: .2s; box-shadow: 0 6px 20px -6px rgba(59,130,246,0.5); letter-spacing: .01em; }
+  .btn:hover { transform: translateY(-1px); box-shadow: 0 10px 28px -6px rgba(59,130,246,0.6); }
+  .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+  .foot-note { text-align: center; font-size: 10.5px; color: #334155; margin-top: 20px; line-height: 1.7; }
+  .foot-note b { color: #475569; }
+  `;
+
+  const LOGIN_SHELL = `
+  <div class="card">
+    <div class="logo-area">
+      <div class="logo-icon">S</div>
+      <div class="logo-title">Sync <b>Activities</b></div>
+      <div class="logo-sub">Portal Educação Profissional Paulista</div>
+    </div>
+    <div class="preview" data-preview>______________sp</div>
+    <div class="row">
+      <div class="field">
+        <label>RA</label>
+        <input type="text" inputmode="numeric" maxlength="12" placeholder="000000000000" data-ra>
+      </div>
+      <div class="field dig">
+        <label>Dígito</label>
+        <input type="text" inputmode="numeric" maxlength="1" placeholder="0" data-dig>
+      </div>
+    </div>
+    <div class="hint">Formato: RA (12 dígitos) + dígito verificador + sp</div>
+    <div class="field">
+      <label>Senha</label>
+      <div class="pass-wrap">
+        <input type="password" placeholder="Sua senha do portal" data-pass autocomplete="current-password">
+        <button class="eye" data-eye>👁</button>
+      </div>
+    </div>
+    <div class="err" data-err></div>
+    <button class="btn" data-login-btn>Entrar no Portal</button>
+    <div class="foot-note">Sync Activities v4.0 · ThiagoGwebg<br><b>Suas credenciais não são armazenadas.</b></div>
+  </div>
+  `;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
   EA.ui = ui;

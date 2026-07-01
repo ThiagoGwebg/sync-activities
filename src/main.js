@@ -1,15 +1,34 @@
 // Sync Activities — main.js
-// Bootstrap: monta a UI e escuta o toggle vindo do ícone da extensão.
+// Bootstrap: verifica login, monta UI ou tela de login.
 (function () {
   const EA = window.__EA;
   if (!EA || !EA.ui) return;
 
-  // Lê sesskey/userId do contexto da página, depois monta o painel.
-  EA.api.initFromPage().finally(() => EA.ui.mount());
+  async function init() {
+    // Tenta pegar sesskey da página atual primeiro
+    await EA.api.initFromPage();
+
+    // Se já temos sesskey, usuário está logado — monta direto
+    if (EA.api.sesskey) {
+      EA.ui.mount();
+      return;
+    }
+
+    // Verifica se está logado pelo portal
+    const logado = await EA.api.isLoggedIn();
+    if (logado) {
+      EA.ui.mount();
+    } else {
+      // Mostra tela de login
+      EA.ui.mountLogin();
+    }
+  }
+
+  init().catch(() => EA.ui.mount());
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg && msg.type === 'EA_TOGGLE') EA.ui.toggle();
   });
 
-  console.log('%cSync Activities v3.0 carregado', 'color:#a855f7;font-weight:600;font-size:12px');
+  console.log('%cSync Activities v4.0 carregado', 'color:#3B82F6;font-weight:600;font-size:12px');
 })();
