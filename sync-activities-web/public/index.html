@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sync Activities</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+      background: #0A0F1D;
+      color: #ECF0F7;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* ── Login Screen ── */
+    #login-screen {
+      width: 100%;
+      max-width: 420px;
+      padding: 24px;
+    }
+    .login-card {
+      background: #0E1527;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 24px;
+      padding: 40px 36px;
+    }
+    .login-logo {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+    .login-logo-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      color: #fff;
+      box-shadow: 0 6px 24px rgba(59,130,246,0.35);
+      flex-shrink: 0;
+    }
+    .login-logo-text h1 {
+      font-size: 20px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.1;
+    }
+    .login-logo-text p {
+      font-size: 12px;
+      color: #64748B;
+      margin-top: 3px;
+    }
+    .login-subtitle {
+      font-size: 13px;
+      color: #94A3B8;
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748B;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .field input {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 14px;
+      color: #ECF0F7;
+      outline: none;
+      transition: border-color 0.15s;
+      font-family: inherit;
+    }
+    .field input:focus {
+      border-color: rgba(59,130,246,0.5);
+      background: rgba(59,130,246,0.05);
+    }
+    .field input::placeholder { color: #475569; }
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #2563EB, #7C3AED);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      font-family: inherit;
+    }
+    .btn-login:hover { opacity: 0.9; }
+    .btn-login:active { transform: scale(0.98); }
+    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+    .login-error {
+      margin-top: 14px;
+      padding: 12px 16px;
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25);
+      border-radius: 10px;
+      font-size: 13px;
+      color: #FCA5A5;
+      display: none;
+    }
+    .login-status {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #64748B;
+      text-align: center;
+      display: none;
+    }
+    .info-box {
+      background: rgba(59,130,246,0.08);
+      border: 1px solid rgba(59,130,246,0.2);
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      color: #CBD5E1;
+      margin-bottom: 18px;
+      line-height: 1.6;
+    }
+    .info-box kbd {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 5px;
+      padding: 1px 6px;
+      font-size: 11px;
+      font-family: ui-monospace, monospace;
+    }
+
+    /* ── Loading overlay (depois do login, antes do painel carregar) ── */
+    #loading-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      text-align: center;
+    }
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(255,255,255,0.06);
+      border-top-color: #3B82F6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading-screen p { font-size: 14px; color: #64748B; }
+  </style>
+</head>
+<body>
+
+<!-- Tela de login -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">S</div>
+      <div class="login-logo-text">
+        <h1>Sync Activities</h1>
+        <p>Automação para o portal SP</p>
+      </div>
+    </div>
+    <p class="login-subtitle" id="login-subtitle">Detectando extensão…</p>
+
+    <!-- Modo extensão -->
+    <div id="mode-ext" style="display:none">
+      <div class="info-box">
+        <strong>Extensão detectada!</strong><br>
+        Certifique-se de estar logado na <a href="https://educacaoprofissional.educacao.sp.gov.br/my/" target="_blank" style="color:#93C5FD">Educação Profissional</a> e clique em Conectar.
+      </div>
+      <button class="btn-login" id="btn-ext">Conectar via Extensão</button>
+    </div>
+
+    <!-- Modo manual (sem extensão): colar o cookie de sessão -->
+    <div id="mode-manual" style="display:none">
+      <div class="info-box">
+        <strong>Passo a passo:</strong>
+        <ol style="margin:8px 0 0 18px;padding:0;line-height:1.8">
+          <li>Abra a <a href="https://educacaoprofissional.educacao.sp.gov.br/my/" target="_blank" style="color:#93C5FD">Educação Profissional</a> e entre pela Sala do Futuro</li>
+          <li>Com a página aberta, aperte <kbd>F12</kbd> → aba <strong>Application</strong> → <strong>Cookies</strong></li>
+          <li>Copie o valor do cookie <strong>MoodleSession</strong> e cole abaixo</li>
+        </ol>
+      </div>
+      <div class="field">
+        <label>Cookie MoodleSession</label>
+        <input type="text" id="input-cookie" placeholder="Cole o valor aqui" autocomplete="off">
+      </div>
+      <button class="btn-login" id="btn-login" style="margin-top:16px">Conectar</button>
+    </div>
+
+    <div class="login-error" id="login-error">
+      <span id="login-error-msg"></span>
+      <a href="#" id="btn-google-fallback" style="display:none;color:#93C5FD;font-size:12px;text-decoration:underline;margin-top:8px;display:none">Abrir portal para logar →</a>
+    </div>
+    <div class="login-status" id="login-status">Detectando extensão…</div>
+  </div>
+</div>
+
+<!-- Tela de carregamento pós-login -->
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <p>Carregando painel…</p>
+</div>
+
+<!-- Os módulos são carregados dinamicamente após o login -->
+
+<script>
+(function () {
+  const errEl       = document.getElementById('login-error');
+  const stEl        = document.getElementById('login-status');
+  const subtitle    = document.getElementById('login-subtitle');
+  const modeExt     = document.getElementById('mode-ext');
+  const modeManual  = document.getElementById('mode-manual');
+  const loginScreen = document.getElementById('login-screen');
+  const loading     = document.getElementById('loading-screen');
+  const fallbackBtn = document.getElementById('btn-google-fallback');
+
+  // ID da extensão — descoberto automaticamente via /api/ext-id (extensão se registra ao iniciar)
+  let EXT_ID = localStorage.getItem('ea_ext_id') || '';
+
+  function showError(msg, showFallback) {
+    document.getElementById('login-error-msg').textContent = msg;
+    errEl.style.display = 'block';
+    if (showFallback) { fallbackBtn.style.display = 'block'; }
+    stEl.style.display = 'none';
+  }
+
+  function setStatus(msg) {
+    stEl.textContent = msg;
+    stEl.style.display = 'block';
+    errEl.style.display = 'none';
+  }
+
+  async function afterLogin(data) {
+    window.__EA_INIT = { sesskey: data.sesskey, userId: data.userId };
+    loginScreen.style.display = 'none';
+    loading.style.display = 'flex';
+    await loadModules();
+  }
+
+  // ── Detecção da extensão ─────────────────────────────────────────────────
+  async function detectExtension() {
+    return new Promise((resolve) => {
+      if (!window.chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
+        return resolve(false);
+      }
+      const extId = EXT_ID;
+      if (!extId) return resolve(false);
+      try {
+        chrome.runtime.sendMessage(extId, { type: 'EA_PING' }, (resp) => {
+          resolve(!chrome.runtime.lastError && !!resp);
+        });
+      } catch { resolve(false); }
+    });
+  }
+
+  // ── Login via extensão ────────────────────────────────────────────────────
+  async function loginViaExt() {
+    const btn = document.getElementById('btn-ext');
+    btn.disabled = true;
+    errEl.style.display = 'none';
+    setStatus('Obtendo sessão da extensão…');
+
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage(EXT_ID, { type: 'EA_GET_SESSION' }, async (resp) => {
+        if (chrome.runtime.lastError || !resp) {
+          showError('Extensão não respondeu. Recarregue a página do Moodle.', true);
+          btn.disabled = false;
+          return resolve(false);
+        }
+        if (resp.error) {
+          showError(resp.error, true);
+          btn.disabled = false;
+          return resolve(false);
+        }
+        try {
+          const r = await fetch('/api/login-ext', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(resp),
+          });
+          const data = await r.json();
+          if (!r.ok || !data.ok) {
+            showError(data.error || 'Sessão inválida.', true);
+            btn.disabled = false;
+            return resolve(false);
+          }
+          await afterLogin(data);
+          resolve(true);
+        } catch (e) {
+          showError('Erro: ' + e.message);
+          btn.disabled = false;
+          resolve(false);
+        }
+      });
+    });
+  }
+
+  // ── Login por cookie (sempre funciona) ────────────────────────────────────
+  async function loginCookie() {
+    const input = document.getElementById('input-cookie');
+    const btn   = document.getElementById('btn-login');
+    let val = input.value.trim();
+    // Aceita "MoodleSession=xxxx" ou só "xxxx"
+    const m = val.match(/MoodleSession=([^;\s]+)/i);
+    if (m) val = m[1];
+    if (!val) return showError('Cole o valor do cookie MoodleSession.');
+    btn.disabled = true;
+    errEl.style.display = 'none';
+    setStatus('Validando sessão…');
+    try {
+      const resp = await fetch('/api/login-ext', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ moodleSession: val }),
+      });
+      const data = await resp.json();
+      if (!resp.ok || !data.ok) {
+        showError(data.error || 'Sessão inválida. Confira se copiou o cookie certo.', true);
+        btn.disabled = false;
+        return;
+      }
+      await afterLogin(data);
+    } catch (e) {
+      showError('Erro: ' + e.message);
+      btn.disabled = false;
+    }
+  }
+
+  fallbackBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    window.open('https://educacaoprofissional.educacao.sp.gov.br/my/', '_blank');
+  });
+
+  // ── Inicialização ─────────────────────────────────────────────────────────
+  (async function init() {
+    setStatus('Verificando extensão…');
+
+    // Tenta descobrir o ID da extensão pelo servidor (extensão se registra ao iniciar)
+    if (!EXT_ID) {
+      try {
+        const r = await fetch('/api/ext-id');
+        const d = await r.json();
+        if (d.extId) { EXT_ID = d.extId; localStorage.setItem('ea_ext_id', EXT_ID); }
+      } catch {}
+    }
+
+    if (EXT_ID) {
+      const found = await detectExtension();
+      if (found) {
+        subtitle.textContent = 'Extensão detectada! Clique para conectar.';
+        modeExt.style.display = 'block';
+        stEl.style.display = 'none';
+        document.getElementById('btn-ext').addEventListener('click', loginViaExt);
+        return;
+      }
+    }
+
+    // Sem extensão: método de colar o cookie de sessão
+    subtitle.textContent = 'Conecte-se reusando sua sessão da Educação Profissional.';
+    modeManual.style.display = 'block';
+    stEl.style.display = 'none';
+    const btn    = document.getElementById('btn-login');
+    const cookie = document.getElementById('input-cookie');
+    btn.addEventListener('click', loginCookie);
+    cookie.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginCookie(); });
+  })();
+
+  // ── Carrega os módulos em ordem após login ──────────────────────────────
+  async function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error('Falha ao carregar ' + src));
+      document.body.appendChild(s);
+    });
+  }
+
+  async function loadModules() {
+    const modules = [
+      '/modules/store.js',
+      '/modules/api.js',
+      '/modules/courses.js',
+      '/modules/activities.js',
+      '/modules/groq.js',
+      '/modules/reader.js',
+      '/modules/completers.js',
+      '/modules/engine.js',
+      '/modules/ui.js',
+      '/modules/main.js',
+    ];
+    for (const m of modules) await loadScript(m);
+    // O main.js vai montar o painel e esconder o loading
+  }
+})();
+</script>
+</body>
+</html>

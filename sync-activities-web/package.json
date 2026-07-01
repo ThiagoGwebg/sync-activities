@@ -1,0 +1,16 @@
+{
+  "name": "sync-activities-web",
+  "version": "1.0.0",
+  "description": "Sync Activities — versão web com login por RA",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "node-fetch": "^2.7.0",
+    "puppeteer-core": "^21.0.0"
+  }
+}

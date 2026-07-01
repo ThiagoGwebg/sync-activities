@@ -24,9 +24,9 @@
   const CAT_ATIVIDADE = ['scorm', 'h5pactivity', 'url', 'page', 'resource', 'folder', 'book', 'lesson', 'glossary', 'imscp', 'subsection', 'generic'];
 
   function catDe(tipo) {
-    if (CAT_REGISTRO.indexOf(tipo) >= 0) return 'registro';
+    if (CAT_REGISTRO.indexOf(tipo) >= 0) return 'reg';
     if (CAT_QUIZ.indexOf(tipo) >= 0) return 'quiz';
-    return 'atividade';
+    return 'atv';
   }
 
   const STYLES = `
@@ -591,10 +591,12 @@
     },
 
     toggleModeInSelection(mode, active) {
+      const modeMap = { atividades: 'atv', registros: 'reg', quiz: 'quiz' };
+      const catKey = modeMap[mode] || mode;
       (engine.model.courses || []).forEach((c) => {
         c.activities.forEach((a) => {
           const cat = catDe(a.modname);
-          if (cat === mode) {
+          if (cat === catKey) {
             if (active) {
               if (a.status !== 'feito' && a.cs !== 1) {
                 this.selectedCmids.add(a.cmid);
@@ -844,8 +846,8 @@
       const counts = { todos: all.length, atividades: 0, registros: 0, quiz: 0, pendentes: 0, feitos: 0 };
       all.forEach((a) => {
         const c = catDe(a.modname);
-        if (c === 'atividade') counts.atividades++;
-        else if (c === 'registro') counts.registros++;
+        if (c === 'atv') counts.atividades++;
+        else if (c === 'reg') counts.registros++;
         else if (c === 'quiz') counts.quiz++;
         if (a.cs === 1) counts.feitos++; else counts.pendentes++;
       });
@@ -871,8 +873,8 @@
       const f = this.detailFilter;
       this.detailWeeks.forEach((w, wi) => {
         let ativs = w.activities;
-        if (f === 'atividades') ativs = ativs.filter((a) => catDe(a.modname) === 'atividade');
-        else if (f === 'registros') ativs = ativs.filter((a) => catDe(a.modname) === 'registro');
+        if (f === 'atividades') ativs = ativs.filter((a) => catDe(a.modname) === 'atv');
+        else if (f === 'registros') ativs = ativs.filter((a) => catDe(a.modname) === 'reg');
         else if (f === 'quiz') ativs = ativs.filter((a) => catDe(a.modname) === 'quiz');
         else if (f === 'pendentes') ativs = ativs.filter((a) => a.cs !== 1);
         else if (f === 'feitos') ativs = ativs.filter((a) => a.cs === 1);
@@ -905,8 +907,8 @@
         let ativs = this.detailWeeks[wi].activities;
         if (f === 'pendentes') ativs = ativs.filter((a) => a.cs !== 1);
         else if (f === 'feitos') ativs = ativs.filter((a) => a.cs === 1);
-        else if (f === 'atividades') ativs = ativs.filter((a) => catDe(a.modname) === 'atividade');
-        else if (f === 'registros') ativs = ativs.filter((a) => catDe(a.modname) === 'registro');
+        else if (f === 'atividades') ativs = ativs.filter((a) => catDe(a.modname) === 'atv');
+        else if (f === 'registros') ativs = ativs.filter((a) => catDe(a.modname) === 'reg');
         else if (f === 'quiz') ativs = ativs.filter((a) => catDe(a.modname) === 'quiz');
         const allSel = ativs.every((a) => this.detailSel.has(a.cmid));
         ativs.forEach((a) => allSel ? this.detailSel.delete(a.cmid) : this.detailSel.add(a.cmid));
@@ -968,8 +970,8 @@
 
       const allAtivs = lista.flatMap((c) => c.activities);
       const cntAll = allAtivs.length;
-      const cntAtv = allAtivs.filter((a) => catDe(a.modname) === 'atividade').length;
-      const cntReg = allAtivs.filter((a) => catDe(a.modname) === 'registro').length;
+      const cntAtv = allAtivs.filter((a) => catDe(a.modname) === 'atv').length;
+      const cntReg = allAtivs.filter((a) => catDe(a.modname) === 'reg').length;
       const cntQuiz = allAtivs.filter((a) => catDe(a.modname) === 'quiz').length;
       const cntPen = allAtivs.filter((a) => a.status !== 'feito').length;
       const cntDone = allAtivs.filter((a) => a.status === 'feito').length;
@@ -992,8 +994,8 @@
 
       lista.forEach((c) => {
         let ativs = c.activities;
-        if (fT === 'atividades') ativs = ativs.filter((a) => catDe(a.modname) === 'atividade');
-        else if (fT === 'registros') ativs = ativs.filter((a) => catDe(a.modname) === 'registro');
+        if (fT === 'atividades') ativs = ativs.filter((a) => catDe(a.modname) === 'atv');
+        else if (fT === 'registros') ativs = ativs.filter((a) => catDe(a.modname) === 'reg');
         else if (fT === 'quiz') ativs = ativs.filter((a) => catDe(a.modname) === 'quiz');
         if (fS !== 'todos') ativs = ativs.filter((a) => a.status === fS);
         if (!ativs.length) return;
@@ -1010,7 +1012,7 @@
 
         ordem.forEach((sec) => {
           const itens = porSemana[sec];
-          const hasReg = itens.some((a) => catDe(a.modname) === 'registro');
+          const hasReg = itens.some((a) => catDe(a.modname) === 'reg');
           const hasQuiz = itens.some((a) => catDe(a.modname) === 'quiz');
           h += '<div class="week-block ' + (hasReg ? 'has-reg' : hasQuiz ? 'has-quiz' : '') + '">';
           h += '<div class="wk-title">' + esc(sec) + '<em>' + itens.length + '</em></div>';

@@ -26,8 +26,11 @@
 
   init().catch(() => EA.ui.mount());
 
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg && msg.type === 'EA_TOGGLE') EA.ui.toggle();
+    if (msg && msg.type === 'EA_GET_CFG') {
+      sendResponse({ sesskey: EA.api.sesskey, userId: EA.api.userId });
+    }
   });
 
   console.log('%cSync Activities v4.0 carregado', 'color:#3B82F6;font-weight:600;font-size:12px');
