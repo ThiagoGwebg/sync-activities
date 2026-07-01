@@ -8,417 +8,301 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-      background: #0A0F1D;
-      color: #ECF0F7;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      background: #0A0F1D; color: #ECF0F7; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
     }
 
-    /* ── Login Screen ── */
-    #login-screen {
-      width: 100%;
-      max-width: 420px;
-      padding: 24px;
-    }
-    .login-card {
-      background: #0E1527;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 24px;
-      padding: 40px 36px;
-    }
-    .login-logo {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 32px;
-    }
-    .login-logo-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, #2563EB, #7C3AED);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 22px;
-      font-weight: 900;
-      color: #fff;
-      box-shadow: 0 6px 24px rgba(59,130,246,0.35);
-      flex-shrink: 0;
-    }
-    .login-logo-text h1 {
-      font-size: 20px;
-      font-weight: 800;
-      background: linear-gradient(135deg, #2563EB, #7C3AED);
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
-      line-height: 1.1;
-    }
-    .login-logo-text p {
-      font-size: 12px;
-      color: #64748B;
-      margin-top: 3px;
-    }
-    .login-subtitle {
-      font-size: 13px;
-      color: #94A3B8;
-      margin-bottom: 28px;
-      line-height: 1.5;
-    }
-    .field-group {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      margin-bottom: 22px;
-    }
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .field label {
-      font-size: 11px;
-      font-weight: 700;
-      color: #64748B;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-    }
-    .field input {
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-size: 14px;
-      color: #ECF0F7;
-      outline: none;
-      transition: border-color 0.15s;
-      font-family: inherit;
-    }
-    .field input:focus {
-      border-color: rgba(59,130,246,0.5);
-      background: rgba(59,130,246,0.05);
-    }
+    /* ── Login ── */
+    #login-screen { width: 100%; max-width: 420px; padding: 24px; }
+    .login-card { background: #0E1527; border: 1px solid rgba(255,255,255,0.08); border-radius: 24px; padding: 40px 36px; }
+    .login-logo { display: flex; align-items: center; gap: 14px; margin-bottom: 28px; }
+    .login-logo-icon { width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, #2563EB, #7C3AED); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 900; color: #fff; box-shadow: 0 6px 24px rgba(59,130,246,0.35); flex-shrink: 0; }
+    .login-logo-text h1 { font-size: 20px; font-weight: 800; background: linear-gradient(135deg, #2563EB, #7C3AED); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; line-height: 1.1; }
+    .login-logo-text p { font-size: 12px; color: #64748B; margin-top: 3px; }
+    .login-subtitle { font-size: 13px; color: #94A3B8; margin-bottom: 24px; line-height: 1.5; }
+    .preview { text-align: center; font-family: ui-monospace, monospace; font-size: 13px; font-weight: 700; color: #3B82F6; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 10px; padding: 9px 14px; margin-bottom: 20px; letter-spacing: 0.05em; }
+    .row { display: flex; gap: 10px; }
+    .field-group { display: flex; flex-direction: column; gap: 14px; margin-bottom: 6px; }
+    .field { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+    .field.uf { flex: 0 0 88px; }
+    .field label { font-size: 11px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 0.06em; }
+    .field input { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 16px; font-size: 14px; color: #ECF0F7; outline: none; transition: border-color 0.15s, box-shadow 0.15s; font-family: inherit; width: 100%; }
+    .field input:focus { border-color: rgba(59,130,246,0.5); background: rgba(59,130,246,0.05); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
     .field input::placeholder { color: #475569; }
-    .btn-login {
-      width: 100%;
-      padding: 14px;
-      border-radius: 12px;
-      border: none;
-      background: linear-gradient(135deg, #2563EB, #7C3AED);
-      color: #fff;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.15s, transform 0.1s;
-      font-family: inherit;
-    }
-    .btn-login:hover { opacity: 0.9; }
-    .btn-login:active { transform: scale(0.98); }
-    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
-    .login-error {
-      margin-top: 14px;
-      padding: 12px 16px;
-      background: rgba(239,68,68,0.1);
-      border: 1px solid rgba(239,68,68,0.25);
-      border-radius: 10px;
-      font-size: 13px;
-      color: #FCA5A5;
-      display: none;
-    }
-    .login-status {
-      margin-top: 14px;
-      font-size: 12px;
-      color: #64748B;
-      text-align: center;
-      display: none;
-    }
-    .info-box {
-      background: rgba(59,130,246,0.08);
-      border: 1px solid rgba(59,130,246,0.2);
-      border-radius: 10px;
-      padding: 14px 16px;
-      font-size: 13px;
-      color: #CBD5E1;
-      margin-bottom: 18px;
-      line-height: 1.6;
-    }
-    .info-box kbd {
-      background: rgba(255,255,255,0.1);
-      border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 5px;
-      padding: 1px 6px;
-      font-size: 11px;
-      font-family: ui-monospace, monospace;
-    }
+    .field select { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 10px; font-size: 13px; color: #ECF0F7; outline: none; transition: border-color 0.15s, box-shadow 0.15s; font-family: inherit; width: 100%; cursor: pointer; }
+    .field select:focus { border-color: rgba(59,130,246,0.5); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+    .field select option { background: #0E1527; color: #ECF0F7; }
+    .field-hint { font-size: 10.5px; color: #475569; margin-top: -8px; margin-bottom: 12px; }
+    .pass-wrap { position: relative; }
+    .pass-wrap input { padding-right: 44px; }
+    .eye { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; font-size: 16px; color: #475569; transition: 0.15s; padding: 6px; }
+    .eye:hover { color: #94A3B8; }
+    .btn-login { width: 100%; padding: 14px; border-radius: 12px; border: none; background: linear-gradient(135deg, #2563EB, #7C3AED); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; transition: opacity 0.15s, transform 0.1s; font-family: inherit; margin-top: 18px; }
+    .btn-login:hover { opacity: 0.9; } .btn-login:active { transform: scale(0.98); } .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+    .login-error { margin-top: 14px; padding: 12px 16px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px; font-size: 13px; color: #FCA5A5; display: none; }
+    .login-status { margin-top: 14px; font-size: 12px; color: #64748B; text-align: center; display: none; }
+    .foot-note { text-align: center; font-size: 10.5px; color: #334155; margin-top: 22px; line-height: 1.7; }
+    .foot-note b { color: #475569; }
 
-    /* ── Loading overlay (depois do login, antes do painel carregar) ── */
-    #loading-screen {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-      text-align: center;
-    }
-    .spinner {
-      width: 48px;
-      height: 48px;
-      border: 3px solid rgba(255,255,255,0.06);
-      border-top-color: #3B82F6;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-    }
+    /* ── Loading ── */
+    #loading-screen { display: none; flex-direction: column; align-items: center; gap: 20px; text-align: center; }
+    .spinner { width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.06); border-top-color: #3B82F6; border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     #loading-screen p { font-size: 14px; color: #64748B; }
+
+    /* ── Dashboard ── */
+    #dash { display: none; width: 100%; max-width: 720px; padding: 24px; align-self: flex-start; margin: 40px auto; }
+    .dash-head { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+    .dash-avatar { width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, #2563EB, #7C3AED); display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: #fff; flex-shrink: 0; }
+    .dash-hello { flex: 1; min-width: 0; }
+    .dash-hello h2 { font-size: 18px; font-weight: 800; }
+    .dash-hello p { font-size: 12px; color: #64748B; margin-top: 2px; }
+    .btn-logout { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); color: #94A3B8; padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 600; cursor: pointer; transition: 0.15s; }
+    .btn-logout:hover { border-color: rgba(239,68,68,0.4); color: #FCA5A5; }
+    .rooms { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .room-chip { font-size: 11.5px; font-weight: 600; color: #93C5FD; background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); padding: 5px 12px; border-radius: 20px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+    .tab { flex: 1; padding: 11px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: #94A3B8; font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.15s; }
+    .tab.on { color: #fff; border-color: transparent; background: linear-gradient(135deg, #2563EB, #7C3AED); }
+    .task-list { display: flex; flex-direction: column; gap: 10px; }
+    .task { display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #0E1527; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; }
+    .task-ico { width: 36px; height: 36px; border-radius: 10px; background: rgba(59,130,246,0.1); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .task-body { flex: 1; min-width: 0; }
+    .task-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .task-meta { font-size: 11px; color: #64748B; margin-top: 2px; }
+    .dash-empty, .dash-loading { text-align: center; color: #64748B; font-size: 13px; padding: 40px 0; }
+    .dash-msg { text-align:center; font-size: 12px; color: #64748B; margin-top: 18px; line-height: 1.6; }
   </style>
 </head>
 <body>
 
-<!-- Tela de login -->
+<!-- ── Tela de login ── -->
 <div id="login-screen">
   <div class="login-card">
     <div class="login-logo">
       <div class="login-logo-icon">S</div>
       <div class="login-logo-text">
         <h1>Sync Activities</h1>
-        <p>Automação para o portal SP</p>
+        <p>Automação para a Sala do Futuro</p>
       </div>
     </div>
-    <p class="login-subtitle" id="login-subtitle">Detectando extensão…</p>
+    <p class="login-subtitle">Entre com seu RA da Secretaria da Educação de SP.</p>
 
-    <!-- Modo extensão -->
-    <div id="mode-ext" style="display:none">
-      <div class="info-box">
-        <strong>Extensão detectada!</strong><br>
-        Certifique-se de estar logado na <a href="https://educacaoprofissional.educacao.sp.gov.br/my/" target="_blank" style="color:#93C5FD">Educação Profissional</a> e clique em Conectar.
+    <div class="preview" id="ra-preview">____________sp</div>
+    <div class="field-group">
+      <div class="row">
+        <div class="field">
+          <label>RA</label>
+          <input type="text" id="input-ra" inputmode="numeric" placeholder="Digite seu RA completo" autocomplete="off">
+        </div>
+        <div class="field uf">
+          <label>UF</label>
+          <select id="input-uf">
+            <option value="sp" selected>SP</option>
+            <option value="ac">AC</option><option value="al">AL</option><option value="ap">AP</option>
+            <option value="am">AM</option><option value="ba">BA</option><option value="ce">CE</option>
+            <option value="df">DF</option><option value="es">ES</option><option value="go">GO</option>
+            <option value="ma">MA</option><option value="mt">MT</option><option value="ms">MS</option>
+            <option value="mg">MG</option><option value="pa">PA</option><option value="pb">PB</option>
+            <option value="pr">PR</option><option value="pe">PE</option><option value="pi">PI</option>
+            <option value="rj">RJ</option><option value="rn">RN</option><option value="rs">RS</option>
+            <option value="ro">RO</option><option value="rr">RR</option><option value="sc">SC</option>
+            <option value="se">SE</option><option value="to">TO</option>
+          </select>
+        </div>
       </div>
-      <button class="btn-login" id="btn-ext">Conectar via Extensão</button>
-    </div>
-
-    <!-- Modo manual (sem extensão): colar o cookie de sessão -->
-    <div id="mode-manual" style="display:none">
-      <div class="info-box">
-        <strong>Passo a passo:</strong>
-        <ol style="margin:8px 0 0 18px;padding:0;line-height:1.8">
-          <li>Abra a <a href="https://educacaoprofissional.educacao.sp.gov.br/my/" target="_blank" style="color:#93C5FD">Educação Profissional</a> e entre pela Sala do Futuro</li>
-          <li>Com a página aberta, aperte <kbd>F12</kbd> → aba <strong>Application</strong> → <strong>Cookies</strong></li>
-          <li>Copie o valor do cookie <strong>MoodleSession</strong> e cole abaixo</li>
-        </ol>
-      </div>
+      <div class="field-hint">Digite o RA com o dígito verificador, do jeito que consta na sua carteirinha.</div>
       <div class="field">
-        <label>Cookie MoodleSession</label>
-        <input type="text" id="input-cookie" placeholder="Cole o valor aqui" autocomplete="off">
+        <label>Senha</label>
+        <div class="pass-wrap">
+          <input type="password" id="input-senha" placeholder="Sua senha da Sala do Futuro" autocomplete="current-password">
+          <button class="eye" id="btn-eye" type="button">👁</button>
+        </div>
       </div>
-      <button class="btn-login" id="btn-login" style="margin-top:16px">Conectar</button>
     </div>
+    <button class="btn-login" id="btn-ra-login">Entrar</button>
 
-    <div class="login-error" id="login-error">
-      <span id="login-error-msg"></span>
-      <a href="#" id="btn-google-fallback" style="display:none;color:#93C5FD;font-size:12px;text-decoration:underline;margin-top:8px;display:none">Abrir portal para logar →</a>
-    </div>
-    <div class="login-status" id="login-status">Detectando extensão…</div>
+    <div class="login-error" id="login-error"><span id="login-error-msg"></span></div>
+    <div class="login-status" id="login-status"></div>
+
+    <div class="foot-note">Sync Activities · ThiagoGwebg<br><b>Suas credenciais não são armazenadas.</b></div>
   </div>
 </div>
 
-<!-- Tela de carregamento pós-login -->
+<!-- ── Carregando ── -->
 <div id="loading-screen">
   <div class="spinner"></div>
-  <p>Carregando painel…</p>
+  <p>Conectando à Sala do Futuro…</p>
 </div>
 
-<!-- Os módulos são carregados dinamicamente após o login -->
+<!-- ── Dashboard ── -->
+<div id="dash">
+  <div class="dash-head">
+    <div class="dash-avatar" id="dash-avatar">S</div>
+    <div class="dash-hello">
+      <h2 id="dash-name">Aluno</h2>
+      <p id="dash-sub">RA · sala</p>
+    </div>
+    <button class="btn-logout" id="btn-logout">Sair</button>
+  </div>
+  <div class="rooms" id="dash-rooms"></div>
+  <div class="tabs">
+    <button class="tab on" id="tab-pend" data-overdue="false">Atividades Pendentes</button>
+    <button class="tab" id="tab-exp" data-overdue="true">Atividades Expiradas</button>
+  </div>
+  <div class="task-list" id="task-list"><div class="dash-loading">Carregando atividades…</div></div>
+  <div class="dash-msg">Login funcionando via SED → edusp-api. A automação de conclusão será ativada em seguida.</div>
+</div>
 
 <script>
 (function () {
-  const errEl       = document.getElementById('login-error');
-  const stEl        = document.getElementById('login-status');
-  const subtitle    = document.getElementById('login-subtitle');
-  const modeExt     = document.getElementById('mode-ext');
-  const modeManual  = document.getElementById('mode-manual');
+  const errEl   = document.getElementById('login-error');
+  const stEl    = document.getElementById('login-status');
   const loginScreen = document.getElementById('login-screen');
-  const loading     = document.getElementById('loading-screen');
-  const fallbackBtn = document.getElementById('btn-google-fallback');
+  const loading = document.getElementById('loading-screen');
+  const dash    = document.getElementById('dash');
 
-  // ID da extensão — descoberto automaticamente via /api/ext-id (extensão se registra ao iniciar)
-  let EXT_ID = localStorage.getItem('ea_ext_id') || '';
+  function showError(msg) { document.getElementById('login-error-msg').textContent = msg; errEl.style.display = 'block'; stEl.style.display = 'none'; }
+  function setStatus(msg) { stEl.textContent = msg; stEl.style.display = 'block'; errEl.style.display = 'none'; }
+  function hideMessages() { errEl.style.display = 'none'; stEl.style.display = 'none'; }
 
-  function showError(msg, showFallback) {
-    document.getElementById('login-error-msg').textContent = msg;
-    errEl.style.display = 'block';
-    if (showFallback) { fallbackBtn.style.display = 'block'; }
-    stEl.style.display = 'none';
+  // ── Login ──────────────────────────────────────────────────────────────────
+  const raInput = document.getElementById('input-ra');
+  const ufSelect = document.getElementById('input-uf');
+  const senhaInput = document.getElementById('input-senha');
+  const raPreview = document.getElementById('ra-preview');
+  const eyeBtn = document.getElementById('btn-eye');
+  const raLoginBtn = document.getElementById('btn-ra-login');
+
+  function updatePreview() {
+    const raDigits = raInput.value.replace(/\D/g, '');
+    raPreview.textContent = (raDigits || '____________') + ufSelect.value;
   }
+  raInput.addEventListener('input', () => { raInput.value = raInput.value.replace(/\D/g, ''); updatePreview(); });
+  ufSelect.addEventListener('change', updatePreview);
+  eyeBtn.addEventListener('click', () => {
+    const isPass = senhaInput.type === 'password';
+    senhaInput.type = isPass ? 'text' : 'password';
+    eyeBtn.textContent = isPass ? '🙈' : '👁';
+  });
 
-  function setStatus(msg) {
-    stEl.textContent = msg;
-    stEl.style.display = 'block';
-    errEl.style.display = 'none';
-  }
-
-  async function afterLogin(data) {
-    window.__EA_INIT = { sesskey: data.sesskey, userId: data.userId };
-    loginScreen.style.display = 'none';
-    loading.style.display = 'flex';
-    await loadModules();
-  }
-
-  // ── Detecção da extensão ─────────────────────────────────────────────────
-  async function detectExtension() {
-    return new Promise((resolve) => {
-      if (!window.chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
-        return resolve(false);
-      }
-      const extId = EXT_ID;
-      if (!extId) return resolve(false);
-      try {
-        chrome.runtime.sendMessage(extId, { type: 'EA_PING' }, (resp) => {
-          resolve(!chrome.runtime.lastError && !!resp);
-        });
-      } catch { resolve(false); }
-    });
-  }
-
-  // ── Login via extensão ────────────────────────────────────────────────────
-  async function loginViaExt() {
-    const btn = document.getElementById('btn-ext');
-    btn.disabled = true;
-    errEl.style.display = 'none';
-    setStatus('Obtendo sessão da extensão…');
-
-    return new Promise((resolve, reject) => {
-      chrome.runtime.sendMessage(EXT_ID, { type: 'EA_GET_SESSION' }, async (resp) => {
-        if (chrome.runtime.lastError || !resp) {
-          showError('Extensão não respondeu. Recarregue a página do Moodle.', true);
-          btn.disabled = false;
-          return resolve(false);
-        }
-        if (resp.error) {
-          showError(resp.error, true);
-          btn.disabled = false;
-          return resolve(false);
-        }
-        try {
-          const r = await fetch('/api/login-ext', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(resp),
-          });
-          const data = await r.json();
-          if (!r.ok || !data.ok) {
-            showError(data.error || 'Sessão inválida.', true);
-            btn.disabled = false;
-            return resolve(false);
-          }
-          await afterLogin(data);
-          resolve(true);
-        } catch (e) {
-          showError('Erro: ' + e.message);
-          btn.disabled = false;
-          resolve(false);
-        }
-      });
-    });
-  }
-
-  // ── Login por cookie (sempre funciona) ────────────────────────────────────
-  async function loginCookie() {
-    const input = document.getElementById('input-cookie');
-    const btn   = document.getElementById('btn-login');
-    let val = input.value.trim();
-    // Aceita "MoodleSession=xxxx" ou só "xxxx"
-    const m = val.match(/MoodleSession=([^;\s]+)/i);
-    if (m) val = m[1];
-    if (!val) return showError('Cole o valor do cookie MoodleSession.');
-    btn.disabled = true;
-    errEl.style.display = 'none';
-    setStatus('Validando sessão…');
+  async function loginComRA() {
+    const ra = raInput.value.trim();
+    const estado = ufSelect.value;
+    const senha = senhaInput.value;
+    if (!ra || !senha) { showError('Preencha RA e senha.'); return; }
+    hideMessages();
+    raLoginBtn.disabled = true;
+    raLoginBtn.textContent = 'Entrando…';
+    setStatus('Conectando à Sala do Futuro…');
     try {
-      const resp = await fetch('/api/login-ext', {
+      const resp = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ moodleSession: val }),
+        body: JSON.stringify({ ra, estado, senha }),
       });
       const data = await resp.json();
       if (!resp.ok || !data.ok) {
-        showError(data.error || 'Sessão inválida. Confira se copiou o cookie certo.', true);
-        btn.disabled = false;
+        showError(data.error || 'RA ou senha inválidos.');
+        raLoginBtn.disabled = false; raLoginBtn.textContent = 'Entrar';
         return;
       }
-      await afterLogin(data);
+      enterDashboard(data);
     } catch (e) {
-      showError('Erro: ' + e.message);
-      btn.disabled = false;
+      showError('Erro ao conectar: ' + e.message);
+      raLoginBtn.disabled = false; raLoginBtn.textContent = 'Entrar';
+    }
+  }
+  raLoginBtn.addEventListener('click', loginComRA);
+  [raInput, senhaInput].forEach((el) => el.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginComRA(); }));
+
+  // ── Dashboard ────────────────────────────────────────────────────────────
+  let CURRENT = null;
+
+  function initials(name) {
+    const parts = String(name || 'A').trim().split(/\s+/);
+    return ((parts[0] || '')[0] || 'A').toUpperCase() + ((parts[1] || '')[0] || '').toUpperCase();
+  }
+
+  async function enterDashboard(data) {
+    CURRENT = data;
+    loginScreen.style.display = 'none';
+    loading.style.display = 'none';
+    dash.style.display = 'block';
+    document.body.style.alignItems = 'flex-start';
+
+    document.getElementById('dash-avatar').textContent = initials(data.userName);
+    document.getElementById('dash-name').textContent = data.userName && data.userName !== '?' ? data.userName : ('RA ' + data.userId);
+    document.getElementById('dash-sub').textContent = 'RA ' + data.userId + ' · ' + (data.roomCode || 'sala');
+
+    const roomsEl = document.getElementById('dash-rooms');
+    roomsEl.innerHTML = (data.rooms || []).map((r) => '<span class="room-chip">' + esc(r.name) + '</span>').join('');
+
+    loadTasks(false);
+  }
+
+  document.getElementById('tab-pend').addEventListener('click', () => switchTab(false));
+  document.getElementById('tab-exp').addEventListener('click', () => switchTab(true));
+  function switchTab(overdue) {
+    document.getElementById('tab-pend').classList.toggle('on', !overdue);
+    document.getElementById('tab-exp').classList.toggle('on', overdue);
+    loadTasks(overdue);
+  }
+
+  async function loadTasks(overdue) {
+    const listEl = document.getElementById('task-list');
+    listEl.innerHTML = '<div class="dash-loading">Carregando atividades…</div>';
+    try {
+      // Monta a query igual ao Taskitos: publication_target = nome de cada sala
+      const params = new URLSearchParams();
+      params.set('expired_only', String(overdue));
+      params.set('limit', '100');
+      params.set('offset', '0');
+      params.set('filter_expired', String(!overdue));
+      params.set('is_exam', 'false');
+      params.set('with_answer', 'true');
+      params.set('is_essay', 'false');
+      let qs = params.toString();
+      (CURRENT.rooms || []).forEach((r) => { qs += '&publication_target=' + encodeURIComponent(r.name); });
+      qs += '&answer_statuses=draft&answer_statuses=pending&with_apply_moment=true';
+
+      const resp = await fetch('/api/edusp/tms/task/todo?' + qs);
+      if (!resp.ok) { listEl.innerHTML = '<div class="dash-empty">Não foi possível carregar (HTTP ' + resp.status + ').</div>'; return; }
+      const tasks = await resp.json();
+      if (!Array.isArray(tasks) || !tasks.length) {
+        listEl.innerHTML = '<div class="dash-empty">🎉 Nenhuma atividade ' + (overdue ? 'expirada' : 'pendente') + '.</div>';
+        return;
+      }
+      listEl.innerHTML = tasks.map((t) => {
+        const title = esc(t.title || t.name || 'Atividade');
+        const due = t.expiration_date || t.publication_moment || '';
+        return '<div class="task"><div class="task-ico">📝</div><div class="task-body">'
+          + '<div class="task-title">' + title + '</div>'
+          + '<div class="task-meta">' + (t.discipline_name ? esc(t.discipline_name) + ' · ' : '') + (due ? 'até ' + esc(String(due).slice(0, 10)) : 'sem prazo') + '</div>'
+          + '</div></div>';
+      }).join('');
+    } catch (e) {
+      listEl.innerHTML = '<div class="dash-empty">Erro: ' + esc(e.message) + '</div>';
     }
   }
 
-  fallbackBtn.addEventListener('click', async (e) => {
-    e.preventDefault();
-    window.open('https://educacaoprofissional.educacao.sp.gov.br/my/', '_blank');
+  document.getElementById('btn-logout').addEventListener('click', async () => {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+    location.reload();
   });
 
-  // ── Inicialização ─────────────────────────────────────────────────────────
-  (async function init() {
-    setStatus('Verificando extensão…');
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
-    // Tenta descobrir o ID da extensão pelo servidor (extensão se registra ao iniciar)
-    if (!EXT_ID) {
-      try {
-        const r = await fetch('/api/ext-id');
-        const d = await r.json();
-        if (d.extId) { EXT_ID = d.extId; localStorage.setItem('ea_ext_id', EXT_ID); }
-      } catch {}
-    }
-
-    if (EXT_ID) {
-      const found = await detectExtension();
-      if (found) {
-        subtitle.textContent = 'Extensão detectada! Clique para conectar.';
-        modeExt.style.display = 'block';
-        stEl.style.display = 'none';
-        document.getElementById('btn-ext').addEventListener('click', loginViaExt);
-        return;
-      }
-    }
-
-    // Sem extensão: método de colar o cookie de sessão
-    subtitle.textContent = 'Conecte-se reusando sua sessão da Educação Profissional.';
-    modeManual.style.display = 'block';
-    stEl.style.display = 'none';
-    const btn    = document.getElementById('btn-login');
-    const cookie = document.getElementById('input-cookie');
-    btn.addEventListener('click', loginCookie);
-    cookie.addEventListener('keydown', (e) => { if (e.key === 'Enter') loginCookie(); });
+  // ── Sessão persistida (F5 mantém logado) ────────────────────────────────────
+  (async function initSession() {
+    try {
+      const r = await fetch('/api/session');
+      const d = await r.json();
+      if (d.logado) enterDashboard(d);
+    } catch {}
+    updatePreview();
+    raInput.focus();
   })();
-
-  // ── Carrega os módulos em ordem após login ──────────────────────────────
-  async function loadScript(src) {
-    return new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = src;
-      s.onload = resolve;
-      s.onerror = () => reject(new Error('Falha ao carregar ' + src));
-      document.body.appendChild(s);
-    });
-  }
-
-  async function loadModules() {
-    const modules = [
-      '/modules/store.js',
-      '/modules/api.js',
-      '/modules/courses.js',
-      '/modules/activities.js',
-      '/modules/groq.js',
-      '/modules/reader.js',
-      '/modules/completers.js',
-      '/modules/engine.js',
-      '/modules/ui.js',
-      '/modules/main.js',
-    ];
-    for (const m of modules) await loadScript(m);
-    // O main.js vai montar o painel e esconder o loading
-  }
 })();
 </script>
 </body>
