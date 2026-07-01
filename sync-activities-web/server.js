@@ -1,423 +1,287 @@
-const express  = require('express');
-const session  = require('express-session');
+const express = require('express');
+const session = require('express-session');
 const nodeFetch = require('node-fetch');
-const path     = require('path');
-const fs       = require('fs');
+const crypto = require('crypto');
+const path = require('path');
+const { execFile } = require('child_process');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const BASE = 'https://educacaoprofissional.educacao.sp.gov.br';
+const PORT = process.env.PORT || 3001;
+
+// ─── Constantes do fluxo SED → edusp-api (mesmo do Taskitos) ─────────────────
+const SED_SUBSCRIPTION_KEY = process.env.SED_SUBSCRIPTION_KEY || 'd701a2043aa24d7ebb37e9adf60d043b';
+const SED_LOGIN_URL = 'https://sedintegracoes.educacao.sp.gov.br/saladofuturobffapi/credenciais/api/LoginCompletoToken';
+const EDUSP_BASE = 'https://edusp-api.ip.tv';
+const SDF_ORIGIN = 'https://saladofuturo.educacao.sp.gov.br';
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
-  secret: 'sync-activities-secret-2024',
+  secret: process.env.SESSION_SECRET || 'sync-activities-secret-2024',
   resave: false,
   saveUninitialized: false,
   cookie: { secure: false, maxAge: 8 * 60 * 60 * 1000 }, // 8h
 }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function parseCookieHeader(raw) {
-  if (!raw || !raw.length) return {};
-  const out = {};
-  const list = Array.isArray(raw) ? raw : [raw];
-  list.forEach((c) => {
-    const part = c.split(';')[0].trim();
-    const eq = part.indexOf('=');
-    if (eq > 0) out[part.slice(0, eq).trim()] = part.slice(eq + 1).trim();
+// hex aleatório (Request-Id / Traceparent), equivalente ao ir() do bundle Taskitos
+function randHex(len) {
+  return crypto.randomBytes(Math.ceil(len / 2)).toString('hex').slice(0, len);
+}
+
+// Headers que o Cloudflare do edusp-api.ip.tv exige + headers de plataforma edusp.
+// User-Agent/Origin/Referer são "forbidden headers" no fetch do browser — por isso
+// só podem ser injetados aqui no servidor. Origin saladofuturo já foi verificado
+// ao vivo liberando o Cloudflare.
+function eduspHeaders(extra) {
+  return Object.assign({
+    'Accept': '*/*',
+    'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+    'Content-Type': 'application/json',
+    'Request-Id': `|${randHex(32)}.${randHex(16)}`,
+    'Traceparent': `00-${randHex(32)}-${randHex(16)}-01`,
+    'X-Api-Realm': 'edusp',
+    'X-Api-Platform': 'webclient',
+    'User-Agent': BROWSER_UA,
+    'Origin': SDF_ORIGIN,
+    'Referer': SDF_ORIGIN + '/',
+  }, extra || {});
+}
+
+// Requisição via curl (shell-out). CRÍTICO: o Cloudflare do edusp-api.ip.tv
+// bloqueia o fingerprint TLS do node-fetch (403 "Just a moment...") mas libera o
+// do curl. Então TODA chamada ao edusp passa por aqui. curl está no Windows
+// (System32\curl.exe) e em qualquer Linux. Retorna { status, ok, text }.
+function curlRequest(url, opts) {
+  opts = opts || {};
+  const method = opts.method || 'GET';
+  const headers = opts.headers || {};
+  const body = opts.body;
+  return new Promise((resolve, reject) => {
+    const args = ['-s', '-m', '30', '--compressed', '-X', method, url];
+    for (const k of Object.keys(headers)) args.push('-H', k + ': ' + headers[k]);
+    if (body != null && method !== 'GET' && method !== 'HEAD') args.push('--data-binary', body);
+    args.push('-w', '\\n__CURLSTATUS__%{http_code}');
+    execFile('curl', args, { maxBuffer: 20 * 1024 * 1024 }, (err, stdout) => {
+      if (err && !stdout) return reject(new Error('curl falhou: ' + err.message));
+      const marker = '\n__CURLSTATUS__';
+      const idx = stdout.lastIndexOf(marker);
+      let text = stdout, status = 0;
+      if (idx >= 0) {
+        text = stdout.slice(0, idx);
+        status = parseInt(stdout.slice(idx + marker.length).trim(), 10) || 0;
+      }
+      resolve({ status, ok: status >= 200 && status < 300, text });
+    });
   });
-  return out;
 }
 
-function cookieString(obj) {
-  return Object.entries(obj).map(([k, v]) => k + '=' + v).join('; ');
+// Extrai mensagem de causa de corpos edusp (array [{cause}] ou {error|message})
+function eduspCause(data) {
+  if (Array.isArray(data) && data[0]) return data[0].cause || data[0].message || '';
+  if (data && (data.error || data.message)) return data.error || data.message;
+  return '';
 }
 
-function extractSesskey(html) {
-  let m = html.match(/"sesskey"\s*:\s*"([^"]+)"/);
-  if (m) return m[1];
-  m = html.match(/name="sesskey"\s+value="([^"]+)"/);
-  if (m) return m[1];
-  m = html.match(/sesskey=([A-Za-z0-9]+)/);
-  return m ? m[1] : '';
+// "Isso é erro de credencial?" — baseado em JSON, nunca em HTML cru.
+function looksLikeCredError(status, data) {
+  if (status === 401 || status === 403) return true;
+  const s = ((data && (data.statusRetorno || data.error || data.message)) || '').toString().toLowerCase();
+  return /invalid|incorret|senha|password|não autorizado|nao autorizado|unauthorized/.test(s);
 }
 
-function extractUserId(html) {
-  let m = html.match(/"userid"\s*:\s*(\d+)/);
-  if (m) return parseInt(m[1]);
-  m = html.match(/data-userid="(\d+)"/);
-  return m ? parseInt(m[1]) : 0;
+// Escolhe a sala como o Taskitos: prioriza rooms cujo topic tem indicador de série
+// [º°ª]; se nenhuma, usa todas; depois pega a de maior oper.length.
+function pickRoom(rooms) {
+  let candidates = rooms.filter((r) =>
+    Array.isArray(r.topics)
+      ? r.topics.some((t) => /[º°ª]/.test((t && (t.name || t)) || ''))
+      : /[º°ª]/.test(r.topic || '')
+  );
+  if (!candidates.length) candidates = rooms.slice();
+  return candidates.reduce((best, r) =>
+    ((r.oper && r.oper.length) || 0) > ((best.oper && best.oper.length) || 0) ? r : best
+    , candidates[0]);
 }
 
-// ─── Login via token.php (API mobile do Moodle, sem CSRF) ───────────────────
+// ─── /api/login: SED (RA/senha) → edusp auth_token → rooms ───────────────────
 
 app.post('/api/login', async (req, res) => {
-  const { ra, senha } = req.body;
-  if (!ra || !senha) return res.status(400).json({ error: 'RA e senha são obrigatórios.' });
+  const { ra: raRaw, estado, senha } = req.body || {};
+  if (!raRaw || !senha) return res.status(400).json({ error: 'RA e senha são obrigatórios.' });
+
+  const raNum = String(raRaw).replace(/\D/g, '');
+  const uf = String(estado || 'sp').trim().toLowerCase();
+  if (!raNum || raNum.length < 6) return res.status(400).json({ error: 'RA inválido.' });
+  const sedUser = raNum + uf; // ex: 111178056sp
 
   try {
-    // Tenta via token.php (web service — sem CSRF, feito para apps)
-    const tokenResp = await nodeFetch(BASE + '/login/token.php', {
+    // ── PASSO 1: autentica na SED e obtém o token intermediário ──────────────
+    const sedResp = await nodeFetch(SED_LOGIN_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'MoodleMobile',
+        'Accept': '*/*',
+        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        'Content-Type': 'application/json',
+        'ocp-apim-subscription-key': SED_SUBSCRIPTION_KEY,
+        'User-Agent': BROWSER_UA,
+        'Origin': SDF_ORIGIN,
+        'Referer': SDF_ORIGIN + '/',
       },
-      body: new URLSearchParams({ username: ra, password: senha, service: 'moodle_mobile_app' }).toString(),
+      body: JSON.stringify({ user: sedUser, senha }),
     });
-    const tokenData = await tokenResp.json();
-    console.log('[login/token]', JSON.stringify(tokenData).substring(0, 200));
 
-    if (tokenData.token) {
-      // Token obtido — agora pega uma sessão web com o token para o proxy funcionar
-      const sessResp = await nodeFetch(BASE + '/login/index.php?token=' + tokenData.token, {
-        headers: { 'User-Agent': 'Mozilla/5.0' },
-        redirect: 'manual',
-      });
-      let moodleCookies = parseCookieHeader(sessResp.headers.raw()['set-cookie'] || []);
+    const sedText = await sedResp.text();
+    let sedData = null;
+    try { sedData = sedText ? JSON.parse(sedText) : {}; } catch { sedData = null; } // null = não-JSON (HTML)
 
-      // Segue redirect para dashboard e coleta cookies
-      let currentUrl = sessResp.headers.get('location') || BASE + '/my/';
-      if (!currentUrl.startsWith('http')) currentUrl = BASE + currentUrl;
-      for (let i = 0; i < 5; i++) {
-        const r2 = await nodeFetch(currentUrl, {
-          headers: { 'Cookie': cookieString(moodleCookies), 'User-Agent': 'Mozilla/5.0' },
-          redirect: 'manual',
-        });
-        Object.assign(moodleCookies, parseCookieHeader(r2.headers.raw()['set-cookie'] || []));
-        const loc = r2.headers.get('location') || '';
-        if (r2.status >= 300 && r2.status < 400 && loc) {
-          currentUrl = loc.startsWith('http') ? loc : BASE + loc;
-        } else {
-          const html = await r2.text();
-          const sesskey = extractSesskey(html);
-          const userId  = extractUserId(html);
-          req.session.moodleCookies = moodleCookies;
-          req.session.sesskey = sesskey;
-          req.session.userId  = userId;
-          req.session.wsToken = tokenData.token;
-          console.log('[login] ok via token — sesskey:', sesskey ? 'ok' : '?', '| userId:', userId);
-          return res.json({ ok: true, sesskey, userId });
-        }
+    const sedToken = sedData && sedData.token;
+
+    // FIX CRÍTICO: o SED é um BFF que retorna 200 mesmo com senha errada e sem
+    // token. Decidir pelo CONTEÚDO (token presente?), não só pelo status HTTP.
+    if (!sedToken) {
+      if (sedData === null) {
+        return res.status(502).json({ error: 'Serviço da SED indisponível ou instável. Tente novamente.', stage: 'sed' });
       }
-      return res.status(500).json({ error: 'Não foi possível obter sessão após token.' });
+      if (looksLikeCredError(sedResp.status, sedData)) {
+        return res.status(401).json({ error: sedData.statusRetorno || 'RA ou senha inválidos.', stage: 'sed' });
+      }
+      return res.status(502).json({ error: sedData.statusRetorno || 'Falha ao autenticar na SED.', stage: 'sed', statusCode: sedData.statusCode });
     }
 
-    // Fallback: login direto via form (com logintoken/CSRF)
-    const step1 = await nodeFetch(BASE + '/login/index.php', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    });
-    const cookies = parseCookieHeader(step1.headers.raw()['set-cookie'] || []);
-    const loginHtml = await step1.text();
-    const logintoken = (loginHtml.match(/name="logintoken"[^>]*value="([^"]+)"/) || [])[1] || '';
-
-    const params = new URLSearchParams({ username: ra, password: senha, logintoken, anchor: '' });
-    let currentUrl2 = BASE + '/login/index.php';
-    let currentCookies = Object.assign({}, cookies);
-    let finalHtml = '';
-    let finalUrl  = '';
-
-    let resp = await nodeFetch(currentUrl2, {
+    // ── PASSO 2: troca o token da SED pelo auth_token da edusp-api ───────────
+    // via curl (o Cloudflare do edusp bloqueia node-fetch)
+    const regResp = await curlRequest(EDUSP_BASE + '/registration/edusp/token', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': cookieString(currentCookies),
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Origin': BASE,
-        'Referer': BASE + '/login/index.php',
-      },
-      body: params.toString(),
-      redirect: 'manual',
+      headers: eduspHeaders(), // sem x-api-key aqui (ainda não autenticado)
+      body: JSON.stringify({ token: sedToken }),
     });
 
-    for (let i = 0; i < 6; i++) {
-      Object.assign(currentCookies, parseCookieHeader(resp.headers.raw()['set-cookie'] || []));
-      const loc = resp.headers.get('location') || '';
-      console.log(`[login/form] hop ${i} status=${resp.status} → ${loc || '(fim)'}`);
-      if (resp.status >= 300 && resp.status < 400 && loc) {
-        currentUrl2 = loc.startsWith('http') ? loc : BASE + loc;
-        resp = await nodeFetch(currentUrl2, {
-          headers: { 'Cookie': cookieString(currentCookies), 'User-Agent': 'Mozilla/5.0' },
-          redirect: 'manual',
-        });
-      } else {
-        finalUrl  = currentUrl2;
-        finalHtml = await resp.text();
-        break;
+    const regText = regResp.text;
+    let regData = null;
+    try { regData = regText ? JSON.parse(regText) : {}; } catch { regData = null; }
+
+    if (regResp.status === 403) {
+      return res.status(502).json({ error: 'Bloqueado pelo Cloudflare da plataforma. Tente novamente.', stage: 'edusp-cf' });
+    }
+    if (regData === null) {
+      return res.status(502).json({ error: 'Plataforma retornou resposta inválida (não-JSON).', stage: 'edusp' });
+    }
+
+    const eduspAuthToken = regData.auth_token;
+    if (!eduspAuthToken) {
+      const cause = eduspCause(regData);
+      if (looksLikeCredError(regResp.status, regData)) {
+        return res.status(401).json({ error: cause || 'Sessão negada pela plataforma (edusp).', stage: 'edusp' });
       }
+      return res.status(502).json({ error: cause || 'Plataforma não retornou auth_token.', stage: 'edusp' });
     }
 
-    if (finalUrl.includes('/login/') || finalHtml.includes('name="logintoken"')) {
-      // Extrai mensagem de erro do Moodle
-      const errMatch = finalHtml.match(/(?:loginerrors|alert-danger|login-error)[^>]*>([\s\S]{0,400})/);
-      let msg = errMatch ? errMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
-      if (!msg) msg = tokenData.error || 'RA ou senha inválidos.';
-      return res.status(401).json({ error: msg.substring(0, 150) });
+    const userName = (regData.user && regData.user.name) || regData.name || '?';
+
+    // ── PASSO 3: lista as salas (rooms) do aluno ─────────────────────────────
+    const roomResp = await curlRequest(EDUSP_BASE + '/room/user', {
+      method: 'GET',
+      headers: eduspHeaders({ 'x-api-key': eduspAuthToken }),
+    });
+
+    const roomText = roomResp.text;
+    let roomData = null;
+    try { roomData = roomText ? JSON.parse(roomText) : {}; } catch { roomData = null; }
+
+    if (roomResp.status === 401) {
+      return res.status(401).json({ error: 'Token da plataforma expirou ao listar salas.', stage: 'rooms' });
+    }
+    if (!roomResp.ok || roomData === null) {
+      return res.status(502).json({ error: 'Falha ao listar salas.', stage: 'rooms' });
     }
 
-    const sesskey = extractSesskey(finalHtml);
-    const userId  = extractUserId(finalHtml);
-    req.session.moodleCookies = currentCookies;
-    req.session.sesskey = sesskey;
-    req.session.userId  = userId;
-    console.log('[login/form] ok — sesskey:', sesskey ? 'ok' : '?', '| userId:', userId);
-    res.json({ ok: true, sesskey, userId });
+    const rooms = roomData.rooms || [];
+    if (!rooms.length) {
+      return res.status(404).json({ error: 'Nenhuma sala encontrada para este aluno.', stage: 'rooms' });
+    }
+
+    const chosen = pickRoom(rooms);
+    const roomCode = chosen && chosen.name;
+    if (!roomCode) {
+      return res.status(502).json({ error: 'Sala sem identificador (name).', stage: 'rooms' });
+    }
+
+    // ── Salva na sessão ──────────────────────────────────────────────────────
+    req.session.sedToken = sedToken;
+    req.session.eduspAuthToken = eduspAuthToken; // vira o x-api-key das chamadas
+    req.session.userId = raNum;
+    req.session.userName = userName;
+    req.session.rooms = rooms;
+    req.session.roomCode = roomCode;
+
+    console.log('[login] ok — user:', userName, '| RA:', raNum, '| roomCode:', roomCode, '| rooms:', rooms.length);
+
+    return res.json({
+      ok: true,
+      userId: raNum,
+      userName,
+      roomCode,
+      rooms: rooms.map((r) => ({ id: r.id, name: r.name })), // não vaza auth_token
+    });
 
   } catch (e) {
     console.error('[login] erro:', e.message);
-    res.status(500).json({ error: 'Erro ao conectar: ' + e.message });
+    return res.status(500).json({ error: 'Erro ao conectar: ' + e.message });
   }
 });
 
-// ─── Login via sessão passada pelo web app (vinda da extensão) ───────────────
+// ─── Proxy autenticado para a edusp-api ──────────────────────────────────────
+// O front chama /api/edusp/<path>; o server injeta x-api-key da sessão + headers
+// edusp + headers de browser (Cloudflare). O browser NÃO pode chamar edusp direto
+// (CORS + forbidden headers), por isso todo tráfego de atividade passa por aqui.
 
-app.post('/api/login-ext', async (req, res) => {
-  const { moodleSession, sesskey, userId } = req.body;
-  if (!moodleSession) return res.status(400).json({ error: 'Sessão não fornecida.' });
+app.all('/api/edusp/*', async (req, res) => {
+  if (!req.session.eduspAuthToken) return res.status(401).json({ error: 'não autenticado' });
+
+  const subPath = req.originalUrl.replace(/^\/api\/edusp/, '');
+  const targetUrl = EDUSP_BASE + (subPath.startsWith('/') ? subPath : '/' + subPath);
+
+  const method = req.method;
+  const opts = { method, headers: eduspHeaders({ 'x-api-key': req.session.eduspAuthToken }) };
+  if (method !== 'GET' && method !== 'HEAD') {
+    opts.body = (req.body && Object.keys(req.body).length) ? JSON.stringify(req.body) : undefined;
+  }
 
   try {
-    const testCookies = { MoodleSession: moodleSession };
-    const r = await nodeFetch(BASE + '/my/', {
-      headers: { 'Cookie': cookieString(testCookies), 'User-Agent': 'Mozilla/5.0' },
-      redirect: 'follow',
-    });
-    const html = await r.text();
-    if (r.url.includes('/login/')) {
-      return res.status(401).json({ error: 'Sessão expirada. Acesse o portal primeiro.' });
+    let r = await curlRequest(targetUrl, opts); // curl fura o Cloudflare do edusp
+    if (r.status === 403) { // Cloudflare intermitente — 1 retry
+      await new Promise((s) => setTimeout(s, 1000));
+      r = await curlRequest(targetUrl, opts);
     }
-    const finalSesskey = sesskey || extractSesskey(html);
-    const finalUserId  = userId  || extractUserId(html);
-    req.session.moodleCookies = testCookies;
-    req.session.sesskey = finalSesskey;
-    req.session.userId  = finalUserId;
-    console.log('[login-ext] ok — sesskey:', finalSesskey ? 'ok' : '?', '| userId:', finalUserId);
-    res.json({ ok: true, sesskey: finalSesskey, userId: finalUserId });
-  } catch (e) {
-    res.status(500).json({ error: 'Erro ao validar sessão: ' + e.message });
-  }
-});
-
-// ─── Login: retorna URL OAuth para o browser abrir (fallback Google) ─────────
-
-app.get('/api/login-url', async (req, res) => {
-  try {
-    const r = await nodeFetch(BASE + '/login/index.php', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    });
-    const html = await r.text();
-    const oauthMatch = html.match(/href="(https?:\/\/educacaoprofissional[^"]*auth\/oauth2\/login\.php[^"]*)"/);
-    if (!oauthMatch) return res.status(500).json({ error: 'Botão de login não encontrado.' });
-    res.json({ url: oauthMatch[1].replace(/&amp;/g, '&') });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ─── Debug: inspeciona o form de login (temporário) ─────────────────────────
-
-app.get('/api/debug-oauth', async (req, res) => {
-  try {
-    // 1. Pega a página de login para extrair a URL OAuth2 e cookies iniciais
-    const step1 = await nodeFetch(BASE + '/login/index.php', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-    });
-    const rawCookies = step1.headers.raw()['set-cookie'] || [];
-    const cookies = parseCookieHeader(rawCookies);
-    const html1 = await step1.text();
-
-    const oauthMatch = html1.match(/href="(https?:\/\/educacaoprofissional[^"]*auth\/oauth2\/login\.php[^"]*)"/);
-    if (!oauthMatch) return res.json({ error: 'botão OAuth2 não encontrado', html: html1.substring(0,2000) });
-
-    const oauthUrl = oauthMatch[1].replace(/&amp;/g, '&');
-    console.log('[oauth] URL inicial:', oauthUrl);
-
-    // 2. Segue todos os redirects do OAuth manualmente para ver a cadeia
-    let currentUrl = oauthUrl;
-    let currentCookies = Object.assign({}, cookies);
-    const hops = [];
-
-    for (let i = 0; i < 8; i++) {
-      const r = await nodeFetch(currentUrl, {
-        headers: {
-          'Cookie': cookieString(currentCookies),
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-        redirect: 'manual',
-      });
-      const sc = r.headers.raw()['set-cookie'] || [];
-      Object.assign(currentCookies, parseCookieHeader(sc));
-      const loc = r.headers.get('location') || '';
-      hops.push({ step: i, status: r.status, url: currentUrl, location: loc });
-      console.log(`[oauth hop ${i}] ${r.status} → ${loc || '(fim)'}`);
-
-      if (r.status >= 300 && r.status < 400 && loc) {
-        currentUrl = loc.startsWith('http') ? loc : (new URL(loc, currentUrl)).href;
-      } else {
-        // chegou ao fim — pega o HTML para ver o form de login
-        const finalHtml = await r.text();
-        const forms = [...finalHtml.matchAll(/<form[^>]*>([\s\S]{0,600})<\/form>/gi)].map(m => m[0].substring(0,600));
-        const inputs = [...finalHtml.matchAll(/<input[^>]+>/gi)].map(m => m[0]);
-        return res.json({ hops, finalUrl: currentUrl, htmlSize: finalHtml.length, forms, inputs });
-      }
+    if (r.status === 401) {
+      return res.status(401).json({ error: 'Sessão da plataforma expirou. Faça login novamente.' });
     }
-    res.json({ hops, note: 'mais de 8 redirects' });
+    res.status(r.status).type('application/json').send(r.text);
   } catch (e) {
-    res.json({ error: e.message });
+    console.error('[edusp proxy] erro:', e.message, '→', targetUrl);
+    res.status(502).json({ error: e.message });
   }
 });
 
-app.get('/api/debug-sso', async (req, res) => {
-  const urls = [
-    'https://salafuturo.educacao.sp.gov.br/',
-    'https://www.salafuturo.educacao.sp.gov.br/',
-    'https://efape.educacao.sp.gov.br/',
-    'https://sed.educacao.sp.gov.br/',
-  ];
-  const results = [];
-  for (const url of urls) {
-    try {
-      const r = await nodeFetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-        redirect: 'follow',
-      });
-      const html = await r.text();
-      const forms = [...html.matchAll(/<form[^>]*>([\s\S]{0,500})<\/form>/gi)].map(m => m[0].substring(0,400));
-      const inputs = [...html.matchAll(/<input[^>]+>/gi)].map(m => m[0]);
-      results.push({ url, finalUrl: r.url, status: r.status, htmlSize: html.length, forms: forms.slice(0,3), inputs: inputs.slice(0,10) });
-    } catch (e) {
-      results.push({ url, error: e.message });
-    }
-  }
-  res.json(results);
-});
-
-app.get('/api/debug-loginhtml', async (req, res) => {
-  try {
-    const r = await nodeFetch(BASE + '/login/index.php', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      redirect: 'follow',
-    });
-    const html = await r.text();
-    // Retorna parte relevante: tudo entre as tags de social-login e o fim do formulário
-    const start = Math.max(0, html.toLowerCase().indexOf('social') - 200);
-    const end = Math.min(html.length, start + 6000);
-    res.type('text/plain').send(html.substring(start, end));
-  } catch (e) {
-    res.status(500).send(e.message);
-  }
-});
-
-app.get('/api/debug-loginform', async (req, res) => {
-  try {
-    const r = await nodeFetch(BASE + '/login/index.php', {
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      redirect: 'follow',
-    });
-    const html = await r.text();
-    const inputs = [...html.matchAll(/<input[^>]+>/gi)].map(m => m[0]).join('\n');
-    const links  = [...html.matchAll(/href="([^"]+)"/gi)].map(m => m[1]).filter(h => h.includes('auth') || h.includes('oauth') || h.includes('sso') || h.includes('saml') || h.includes('cas') || h.includes('sed') || h.includes('login'));
-    const buttons = [...html.matchAll(/<a[^>]+class="[^"]*btn[^"]*"[^>]*>([\s\S]{0,100})<\/a>/gi)].map(m => m[0].substring(0,200));
-    // Trecho com Estudante/Servidor se existir
-    const idxEst = html.toLowerCase().indexOf('estudante');
-    const snippet = idxEst >= 0 ? html.substring(Math.max(0,idxEst-800), idxEst+1200) : '';
-    res.json({ finalUrl: r.url, htmlSize: html.length, inputs: inputs.substring(0,3000), authLinks: links.slice(0,20), buttons: buttons.slice(0,10), estudanteSnippet: snippet });
-  } catch (e) {
-    res.json({ error: e.message });
-  }
-});
-
-// ─── Registro da extensão Chrome ─────────────────────────────────────────────
-
-let registeredExtId = null;
-
-app.post('/api/register-ext', (req, res) => {
-  if (req.body && req.body.extId) {
-    registeredExtId = req.body.extId;
-    console.log('[ext] registrada:', registeredExtId);
-  }
-  res.json({ ok: true });
-});
-
-app.get('/api/ext-id', (req, res) => {
-  res.json({ extId: registeredExtId });
-});
-
-// ─── Verifica sessão ─────────────────────────────────────────────────────────
+// ─── Sessão / logout ─────────────────────────────────────────────────────────
 
 app.get('/api/session', (req, res) => {
-  if (!req.session.moodleCookies) return res.json({ logado: false });
-  res.json({ logado: true, sesskey: req.session.sesskey, userId: req.session.userId });
+  if (!req.session.eduspAuthToken) return res.json({ logado: false });
+  res.json({
+    logado: true,
+    userId: req.session.userId,
+    userName: req.session.userName,
+    roomCode: req.session.roomCode,
+    rooms: (req.session.rooms || []).map((r) => ({ id: r.id, name: r.name })),
+  });
 });
 
 app.post('/api/logout', (req, res) => {
   req.session.destroy(() => res.json({ ok: true }));
-});
-
-// ─── Proxy para o Moodle ─────────────────────────────────────────────────────
-
-app.post('/api/proxy', async (req, res) => {
-  if (!req.session.moodleCookies) return res.status(401).json({ error: 'não autenticado' });
-
-  const { url, method = 'GET', headers: extraHeaders = {}, body } = req.body;
-  if (!url) return res.status(400).json({ error: 'url obrigatória' });
-
-  // Garante URL absoluta dentro do portal
-  const fullUrl = url.startsWith('http') ? url : BASE + (url.startsWith('/') ? url : '/' + url);
-
-  const forwardHeaders = Object.assign({}, extraHeaders, {
-    'Cookie': cookieString(req.session.moodleCookies),
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-    'Origin': BASE,
-    'Referer': BASE + '/',
-  });
-  // Remove headers que o browser injeta mas o node não precisa
-  delete forwardHeaders['credentials'];
-
-  try {
-    const fetchOpts = { method, headers: forwardHeaders, redirect: 'follow' };
-    if (body !== null && body !== undefined && method !== 'GET') fetchOpts.body = body;
-
-    const moodleRes = await nodeFetch(fullUrl, fetchOpts);
-
-    // Captura cookies novos (ex: renovação de sessão)
-    const rawNew = moodleRes.headers.raw()['set-cookie'] || [];
-    if (rawNew.length) {
-      Object.assign(req.session.moodleCookies, parseCookieHeader(rawNew));
-    }
-
-    const contentType = moodleRes.headers.get('content-type') || 'text/plain';
-    const buf = await moodleRes.buffer();
-    res.status(moodleRes.status).type(contentType).send(buf);
-  } catch (e) {
-    console.error('Proxy error:', e.message, '→', fullUrl);
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// ─── Refresh sesskey ─────────────────────────────────────────────────────────
-// Chamado quando o frontend precisa de um sesskey fresco
-
-app.post('/api/refresh-auth', async (req, res) => {
-  if (!req.session.moodleCookies) return res.status(401).json({ error: 'não autenticado' });
-  try {
-    const r = await nodeFetch(BASE + '/my/', {
-      headers: {
-        'Cookie': cookieString(req.session.moodleCookies),
-        'User-Agent': 'Mozilla/5.0',
-      },
-      redirect: 'follow',
-    });
-    const html = await r.text();
-    const sesskey = extractSesskey(html);
-    const userId = extractUserId(html) || req.session.userId;
-    if (sesskey) { req.session.sesskey = sesskey; req.session.userId = userId; }
-    res.json({ sesskey, userId });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
 });
 
 // ─── Serve index.html para qualquer rota desconhecida ────────────────────────
